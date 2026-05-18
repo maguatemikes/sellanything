@@ -11,7 +11,7 @@ import {
  * @type {Route.MetaFunction}
  */
 export const meta = () => {
-  return [{title: 'Profile'}];
+  return [{title: 'Profile · sellanything'}];
 };
 
 /**
@@ -19,7 +19,6 @@ export const meta = () => {
  */
 export async function loader({context}) {
   await context.customerAccount.handleAuthStatus();
-
   return {};
 }
 
@@ -47,8 +46,7 @@ export async function action({request, context}) {
       }
     }
 
-    // update customer and possibly password
-    const {data, errors} = await customerAccount.mutate(
+    const {data: result, errors} = await customerAccount.mutate(
       CUSTOMER_UPDATE_MUTATION,
       {
         variables: {
@@ -62,13 +60,14 @@ export async function action({request, context}) {
       throw new Error(errors[0].message);
     }
 
-    if (!data?.customerUpdate?.customer) {
+    if (!result?.customerUpdate?.customer) {
       throw new Error('Customer profile update failed.');
     }
 
     return {
       error: null,
-      customer: data?.customerUpdate?.customer,
+      customer: result.customerUpdate.customer,
+      success: true,
     };
   } catch (error) {
     return data(
@@ -86,50 +85,112 @@ export default function AccountProfile() {
   /** @type {ActionReturnData} */
   const action = useActionData();
   const customer = action?.customer ?? account?.customer;
+  const isSubmitting = state !== 'idle';
 
   return (
-    <div className="account-profile">
-      <h2>My profile</h2>
-      <br />
-      <Form method="PUT">
-        <legend>Personal information</legend>
-        <fieldset>
-          <label htmlFor="firstName">First name</label>
-          <input
+    <div className="max-w-2xl">
+      {/* Page heading */}
+      <div className="mb-8">
+        <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground mb-2 block">
+          Personal information
+        </span>
+        <h2 className="font-black tracking-tight uppercase text-2xl lg:text-3xl text-foreground m-0">
+          My profile
+        </h2>
+        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+          Your name appears on order confirmations and shipping labels. To
+          change your email or password, use Shop&apos;s account settings.
+        </p>
+      </div>
+
+      {/* Form */}
+      <Form method="PUT" className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Field
+            label="First name"
             id="firstName"
             name="firstName"
-            type="text"
             autoComplete="given-name"
-            placeholder="First name"
-            aria-label="First name"
-            defaultValue={customer.firstName ?? ''}
+            defaultValue={customer?.firstName ?? ''}
             minLength={2}
+            placeholder="First name"
           />
-          <label htmlFor="lastName">Last name</label>
-          <input
+          <Field
+            label="Last name"
             id="lastName"
             name="lastName"
-            type="text"
             autoComplete="family-name"
-            placeholder="Last name"
-            aria-label="Last name"
-            defaultValue={customer.lastName ?? ''}
+            defaultValue={customer?.lastName ?? ''}
             minLength={2}
+            placeholder="Last name"
           />
-        </fieldset>
-        {action?.error ? (
-          <p>
-            <mark>
-              <small>{action.error}</small>
-            </mark>
-          </p>
-        ) : (
-          <br />
+        </div>
+
+        {/* Feedback */}
+        {action?.error && (
+          <div className="border border-destructive/40 bg-destructive/5 text-destructive text-sm rounded-md px-4 py-3">
+            {action.error}
+          </div>
         )}
-        <button type="submit" disabled={state !== 'idle'}>
-          {state !== 'idle' ? 'Updating' : 'Update'}
-        </button>
+        {action?.success && !action?.error && (
+          <div className="border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm rounded-md px-4 py-3">
+            Profile updated.
+          </div>
+        )}
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-foreground text-background font-bold text-sm uppercase tracking-[0.18em] px-8 py-3.5 rounded-md hover:bg-foreground/85 transition disabled:opacity-60 disabled:pointer-events-none"
+          >
+            {isSubmitting ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
       </Form>
+
+      {/* Note about email/password */}
+      <div className="mt-12 pt-8 border-t border-border">
+        <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground mb-2 block">
+          Security
+        </span>
+        <h3 className="font-bold text-foreground mb-2">
+          Email, password &amp; 2FA
+        </h3>
+        <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
+          These are managed by Shop on Shopify&apos;s secure account page. Visit{' '}
+          <a
+            href="https://shop.app/account"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:text-foreground"
+          >
+            shop.app/account
+          </a>{' '}
+          to update them.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Field({label, id, name, ...rest}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="block text-[11px] uppercase tracking-[0.2em] font-semibold text-muted-foreground mb-2"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type="text"
+        aria-label={label}
+        className="w-full h-11 px-4 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/30 focus:border-foreground transition"
+        {...rest}
+      />
     </div>
   );
 }
@@ -138,6 +199,7 @@ export default function AccountProfile() {
  * @typedef {{
  *   error: string | null;
  *   customer: CustomerFragment | null;
+ *   success?: boolean;
  * }} ActionResponse
  */
 

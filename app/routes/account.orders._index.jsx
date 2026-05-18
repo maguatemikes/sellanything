@@ -22,7 +22,7 @@ import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
  * @type {Route.MetaFunction}
  */
 export const meta = () => {
-  return [{title: 'Orders'}];
+  return [{title: 'Orders · sellanything'}];
 };
 
 /**
@@ -59,7 +59,20 @@ export default function Orders() {
   const {orders} = customer;
 
   return (
-    <div className="orders">
+    <div>
+      {/* Heading */}
+      <div className="mb-8">
+        <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground mb-2 block">
+          Your purchases
+        </span>
+        <h2 className="font-black tracking-tight uppercase text-2xl lg:text-3xl text-foreground m-0">
+          Orders
+        </h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Track shipments, view receipts, and reorder past purchases.
+        </p>
+      </div>
+
       <OrderSearchForm currentFilters={filters} />
       <OrdersTable orders={orders} filters={filters} />
     </div>
@@ -76,7 +89,7 @@ function OrdersTable({orders, filters}) {
   const hasFilters = !!(filters.name || filters.confirmationNumber);
 
   return (
-    <div className="acccount-orders" aria-live="polite">
+    <div aria-live="polite" className="mt-8">
       {orders?.nodes.length ? (
         <PaginatedResourceSection connection={orders}>
           {({node: order}) => <OrderItem key={order.id} order={order} />}
@@ -93,22 +106,33 @@ function OrdersTable({orders, filters}) {
  */
 function EmptyOrders({hasFilters = false}) {
   return (
-    <div>
+    <div className="border border-dashed border-border rounded-lg p-12 text-center bg-secondary/50">
       {hasFilters ? (
         <>
-          <p>No orders found matching your search.</p>
-          <br />
-          <p>
-            <Link to="/account/orders">Clear filters →</Link>
+          <p className="text-foreground font-medium mb-4">
+            No orders found matching your search.
           </p>
+          <Link
+            to="/account/orders"
+            className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground hover:underline"
+          >
+            Clear filters →
+          </Link>
         </>
       ) : (
         <>
-          <p>You haven&apos;t placed any orders yet.</p>
-          <br />
-          <p>
-            <Link to="/collections">Start Shopping →</Link>
+          <p className="text-foreground font-medium mb-2">
+            You haven&apos;t placed any orders yet.
           </p>
+          <p className="text-sm text-muted-foreground mb-6">
+            When you do, they&apos;ll show up here.
+          </p>
+          <Link
+            to="/collections"
+            className="inline-flex items-center justify-center bg-foreground text-background font-bold text-sm uppercase tracking-[0.18em] px-6 py-3 rounded-md hover:bg-foreground/85 transition"
+          >
+            Start shopping
+          </Link>
         </>
       )}
     </div>
@@ -121,7 +145,7 @@ function EmptyOrders({hasFilters = false}) {
  * }}
  */
 function OrderSearchForm({currentFilters}) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
   const navigation = useNavigation();
   const isSearching =
     navigation.state !== 'idle' &&
@@ -152,34 +176,33 @@ function OrderSearchForm({currentFilters}) {
     <form
       ref={formRef}
       onSubmit={handleSubmit}
-      className="order-search-form"
       aria-label="Search orders"
+      className="bg-secondary border border-border rounded-lg p-5"
     >
-      <fieldset className="order-search-fieldset">
-        <legend className="order-search-legend">Filter Orders</legend>
-
-        <div className="order-search-inputs">
-          <input
-            type="search"
-            name={ORDER_FILTER_FIELDS.NAME}
-            placeholder="Order #"
-            aria-label="Order number"
-            defaultValue={currentFilters.name || ''}
-            className="order-search-input"
-          />
-          <input
-            type="search"
-            name={ORDER_FILTER_FIELDS.CONFIRMATION_NUMBER}
-            placeholder="Confirmation #"
-            aria-label="Confirmation number"
-            defaultValue={currentFilters.confirmationNumber || ''}
-            className="order-search-input"
-          />
-        </div>
-
-        <div className="order-search-buttons">
-          <button type="submit" disabled={isSearching}>
-            {isSearching ? 'Searching' : 'Search'}
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
+        <input
+          type="search"
+          name={ORDER_FILTER_FIELDS.NAME}
+          placeholder="Order # (e.g. 1042)"
+          aria-label="Order number"
+          defaultValue={currentFilters.name || ''}
+          className="h-11 px-4 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/30 focus:border-foreground transition"
+        />
+        <input
+          type="search"
+          name={ORDER_FILTER_FIELDS.CONFIRMATION_NUMBER}
+          placeholder="Confirmation #"
+          aria-label="Confirmation number"
+          defaultValue={currentFilters.confirmationNumber || ''}
+          className="h-11 px-4 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/30 focus:border-foreground transition"
+        />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={isSearching}
+            className="h-11 bg-foreground text-background font-semibold text-xs uppercase tracking-[0.18em] px-5 rounded-md hover:bg-foreground/85 transition disabled:opacity-60"
+          >
+            {isSearching ? 'Searching…' : 'Search'}
           </button>
           {hasFilters && (
             <button
@@ -189,12 +212,13 @@ function OrderSearchForm({currentFilters}) {
                 setSearchParams(new URLSearchParams());
                 formRef.current?.reset();
               }}
+              className="h-11 border border-border text-foreground font-semibold text-xs uppercase tracking-[0.18em] px-5 rounded-md hover:bg-background transition disabled:opacity-60"
             >
               Clear
             </button>
           )}
         </div>
-      </fieldset>
+      </div>
     </form>
   );
 }
@@ -204,23 +228,81 @@ function OrderSearchForm({currentFilters}) {
  */
 function OrderItem({order}) {
   const fulfillmentStatus = flattenConnection(order.fulfillments)[0]?.status;
+  const date = new Date(order.processedAt).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
   return (
-    <>
-      <fieldset>
-        <Link to={`/account/orders/${btoa(order.id)}`}>
-          <strong>#{order.number}</strong>
-        </Link>
-        <p>{new Date(order.processedAt).toDateString()}</p>
-        {order.confirmationNumber && (
-          <p>Confirmation: {order.confirmationNumber}</p>
-        )}
-        <p>{order.financialStatus}</p>
-        {fulfillmentStatus && <p>{fulfillmentStatus}</p>}
-        <Money data={order.totalPrice} />
-        <Link to={`/account/orders/${btoa(order.id)}`}>View Order →</Link>
-      </fieldset>
-      <br />
-    </>
+    <article className="border border-border bg-background rounded-lg p-5 lg:p-6 mb-3 hover:border-foreground/40 transition">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Left: order info */}
+        <div className="flex-1 min-w-0">
+          <Link
+            to={`/account/orders/${btoa(order.id)}`}
+            className="inline-flex items-baseline gap-3 group"
+          >
+            <span className="font-black tracking-tight uppercase text-lg text-foreground group-hover:underline">
+              #{order.number}
+            </span>
+            <span className="text-xs text-muted-foreground">{date}</span>
+          </Link>
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {order.confirmationNumber && (
+              <span>Conf: {order.confirmationNumber}</span>
+            )}
+            <StatusPill label={order.financialStatus} />
+            {fulfillmentStatus && (
+              <StatusPill label={fulfillmentStatus} variant="fulfillment" />
+            )}
+          </div>
+        </div>
+
+        {/* Right: total + CTA */}
+        <div className="flex items-center justify-between sm:justify-end gap-6">
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-0.5">
+              Total
+            </div>
+            <div className="font-bold text-foreground">
+              <Money data={order.totalPrice} />
+            </div>
+          </div>
+          <Link
+            to={`/account/orders/${btoa(order.id)}`}
+            className="text-sm font-semibold uppercase tracking-wider text-foreground hover:underline whitespace-nowrap"
+          >
+            View →
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function StatusPill({label, variant = 'financial'}) {
+  if (!label) return null;
+  const normalized = String(label).toLowerCase();
+
+  const tone =
+    variant === 'fulfillment'
+      ? normalized.includes('fulfilled') || normalized.includes('delivered')
+        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+        : 'bg-amber-50 text-amber-800 border-amber-200'
+      : normalized === 'paid'
+        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+        : normalized === 'pending'
+          ? 'bg-amber-50 text-amber-800 border-amber-200'
+          : 'bg-secondary text-foreground border-border';
+
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${tone}`}
+    >
+      {label}
+    </span>
   );
 }
 

@@ -5,6 +5,7 @@ import {
   useNavigation,
   useOutletContext,
 } from 'react-router';
+import {useState} from 'react';
 import {
   UPDATE_ADDRESS_MUTATION,
   DELETE_ADDRESS_MUTATION,
@@ -15,7 +16,7 @@ import {
  * @type {Route.MetaFunction}
  */
 export const meta = () => {
-  return [{title: 'Addresses'}];
+  return [{title: 'Addresses · sellanything'}];
 };
 
 /**
@@ -23,7 +24,6 @@ export const meta = () => {
  */
 export async function loader({context}) {
   await context.customerAccount.handleAuthStatus();
-
   return {};
 }
 
@@ -43,14 +43,11 @@ export async function action({request, context}) {
       throw new Error('You must provide an address id.');
     }
 
-    // this will ensure redirecting to login never happen for mutatation
     const isLoggedIn = await customerAccount.isLoggedIn();
     if (!isLoggedIn) {
       return data(
         {error: {[addressId]: 'Unauthorized'}},
-        {
-          status: 401,
-        },
+        {status: 401},
       );
     }
 
@@ -80,9 +77,8 @@ export async function action({request, context}) {
 
     switch (request.method) {
       case 'POST': {
-        // handle new address creation
         try {
-          const {data, errors} = await customerAccount.mutate(
+          const {data: result, errors} = await customerAccount.mutate(
             CREATE_ADDRESS_MUTATION,
             {
               variables: {
@@ -92,46 +88,27 @@ export async function action({request, context}) {
               },
             },
           );
-
-          if (errors?.length) {
-            throw new Error(errors[0].message);
-          }
-
-          if (data?.customerAddressCreate?.userErrors?.length) {
-            throw new Error(data?.customerAddressCreate?.userErrors[0].message);
-          }
-
-          if (!data?.customerAddressCreate?.customerAddress) {
+          if (errors?.length) throw new Error(errors[0].message);
+          if (result?.customerAddressCreate?.userErrors?.length)
+            throw new Error(result.customerAddressCreate.userErrors[0].message);
+          if (!result?.customerAddressCreate?.customerAddress)
             throw new Error('Customer address create failed.');
-          }
-
           return {
             error: null,
-            createdAddress: data?.customerAddressCreate?.customerAddress,
+            createdAddress: result.customerAddressCreate.customerAddress,
             defaultAddress,
           };
         } catch (error) {
-          if (error instanceof Error) {
-            return data(
-              {error: {[addressId]: error.message}},
-              {
-                status: 400,
-              },
-            );
-          }
           return data(
-            {error: {[addressId]: error}},
-            {
-              status: 400,
-            },
+            {error: {[addressId]: error?.message ?? String(error)}},
+            {status: 400},
           );
         }
       }
 
       case 'PUT': {
-        // handle address updates
         try {
-          const {data, errors} = await customerAccount.mutate(
+          const {data: result, errors} = await customerAccount.mutate(
             UPDATE_ADDRESS_MUTATION,
             {
               variables: {
@@ -142,46 +119,23 @@ export async function action({request, context}) {
               },
             },
           );
-
-          if (errors?.length) {
-            throw new Error(errors[0].message);
-          }
-
-          if (data?.customerAddressUpdate?.userErrors?.length) {
-            throw new Error(data?.customerAddressUpdate?.userErrors[0].message);
-          }
-
-          if (!data?.customerAddressUpdate?.customerAddress) {
+          if (errors?.length) throw new Error(errors[0].message);
+          if (result?.customerAddressUpdate?.userErrors?.length)
+            throw new Error(result.customerAddressUpdate.userErrors[0].message);
+          if (!result?.customerAddressUpdate?.customerAddress)
             throw new Error('Customer address update failed.');
-          }
-
-          return {
-            error: null,
-            updatedAddress: address,
-            defaultAddress,
-          };
+          return {error: null, updatedAddress: address, defaultAddress};
         } catch (error) {
-          if (error instanceof Error) {
-            return data(
-              {error: {[addressId]: error.message}},
-              {
-                status: 400,
-              },
-            );
-          }
           return data(
-            {error: {[addressId]: error}},
-            {
-              status: 400,
-            },
+            {error: {[addressId]: error?.message ?? String(error)}},
+            {status: 400},
           );
         }
       }
 
       case 'DELETE': {
-        // handles address deletion
         try {
-          const {data, errors} = await customerAccount.mutate(
+          const {data: result, errors} = await customerAccount.mutate(
             DELETE_ADDRESS_MUTATION,
             {
               variables: {
@@ -190,61 +144,30 @@ export async function action({request, context}) {
               },
             },
           );
-
-          if (errors?.length) {
-            throw new Error(errors[0].message);
-          }
-
-          if (data?.customerAddressDelete?.userErrors?.length) {
-            throw new Error(data?.customerAddressDelete?.userErrors[0].message);
-          }
-
-          if (!data?.customerAddressDelete?.deletedAddressId) {
+          if (errors?.length) throw new Error(errors[0].message);
+          if (result?.customerAddressDelete?.userErrors?.length)
+            throw new Error(result.customerAddressDelete.userErrors[0].message);
+          if (!result?.customerAddressDelete?.deletedAddressId)
             throw new Error('Customer address delete failed.');
-          }
-
           return {error: null, deletedAddress: addressId};
         } catch (error) {
-          if (error instanceof Error) {
-            return data(
-              {error: {[addressId]: error.message}},
-              {
-                status: 400,
-              },
-            );
-          }
           return data(
-            {error: {[addressId]: error}},
-            {
-              status: 400,
-            },
+            {error: {[addressId]: error?.message ?? String(error)}},
+            {status: 400},
           );
         }
       }
 
-      default: {
+      default:
         return data(
           {error: {[addressId]: 'Method not allowed'}},
-          {
-            status: 405,
-          },
+          {status: 405},
         );
-      }
     }
   } catch (error) {
-    if (error instanceof Error) {
-      return data(
-        {error: error.message},
-        {
-          status: 400,
-        },
-      );
-    }
     return data(
-      {error},
-      {
-        status: 400,
-      },
+      {error: error?.message ?? String(error)},
+      {status: 400},
     );
   }
 }
@@ -252,33 +175,74 @@ export async function action({request, context}) {
 export default function Addresses() {
   const {customer} = useOutletContext();
   const {defaultAddress, addresses} = customer;
+  const [showNewForm, setShowNewForm] = useState(false);
 
   return (
-    <div className="account-addresses">
-      <h2>Addresses</h2>
-      <br />
-      <div>
+    <div>
+      {/* Heading */}
+      <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
         <div>
-          <legend>Create address</legend>
-          <NewAddressForm key={addresses.nodes.length} />
+          <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground mb-2 block">
+            Saved locations
+          </span>
+          <h2 className="font-black tracking-tight uppercase text-2xl lg:text-3xl text-foreground m-0">
+            Addresses
+          </h2>
+          <p className="text-sm text-muted-foreground mt-2">
+            Set a default shipping address for faster checkout.
+          </p>
         </div>
-        <br />
-        <hr />
-        <br />
-        {!addresses.nodes.length ? (
-          <p>You have no addresses saved.</p>
-        ) : (
-          <ExistingAddresses
-            addresses={addresses}
-            defaultAddress={defaultAddress}
-          />
+        {!showNewForm && (
+          <button
+            type="button"
+            onClick={() => setShowNewForm(true)}
+            className="bg-foreground text-background font-bold text-xs uppercase tracking-[0.18em] px-5 py-3 rounded-md hover:bg-foreground/85 transition"
+          >
+            + Add address
+          </button>
         )}
       </div>
+
+      {/* New address form (collapsible) */}
+      {showNewForm && (
+        <div className="bg-secondary border border-border rounded-lg p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-sm">
+              New address
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowNewForm(false)}
+              className="text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+          <NewAddressForm onCreated={() => setShowNewForm(false)} />
+        </div>
+      )}
+
+      {/* Existing addresses */}
+      {!addresses.nodes.length ? (
+        <div className="border border-dashed border-border rounded-lg p-12 text-center bg-secondary/50">
+          <p className="text-foreground font-medium mb-2">
+            No saved addresses yet.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Click <strong>+ Add address</strong> above to create one.
+          </p>
+        </div>
+      ) : (
+        <ExistingAddresses
+          addresses={addresses}
+          defaultAddress={defaultAddress}
+        />
+      )}
     </div>
   );
 }
 
-function NewAddressForm() {
+function NewAddressForm({onCreated}) {
   const newAddress = {
     address1: '',
     address2: '',
@@ -300,13 +264,14 @@ function NewAddressForm() {
       defaultAddress={null}
     >
       {({stateForMethod}) => (
-        <div>
+        <div className="flex gap-3 pt-2">
           <button
             disabled={stateForMethod('POST') !== 'idle'}
             formMethod="POST"
             type="submit"
+            className="bg-foreground text-background font-bold text-xs uppercase tracking-[0.18em] px-6 py-3 rounded-md hover:bg-foreground/85 transition disabled:opacity-60"
           >
-            {stateForMethod('POST') !== 'idle' ? 'Creating' : 'Create'}
+            {stateForMethod('POST') !== 'idle' ? 'Creating…' : 'Create address'}
           </button>
         </div>
       )}
@@ -319,35 +284,112 @@ function NewAddressForm() {
  */
 function ExistingAddresses({addresses, defaultAddress}) {
   return (
-    <div>
-      <legend>Existing addresses</legend>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {addresses.nodes.map((address) => (
-        <AddressForm
+        <AddressCard
           key={address.id}
+          address={address}
+          defaultAddress={defaultAddress}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AddressCard({address, defaultAddress}) {
+  const [editing, setEditing] = useState(false);
+  const isDefault = defaultAddress?.id === address.id;
+
+  if (editing) {
+    return (
+      <div className="bg-secondary border border-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-foreground uppercase tracking-wider text-sm">
+            Edit address
+          </h3>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+        </div>
+        <AddressForm
           addressId={address.id}
           address={address}
           defaultAddress={defaultAddress}
         >
           {({stateForMethod}) => (
-            <div>
+            <div className="flex flex-wrap gap-3 pt-2">
               <button
                 disabled={stateForMethod('PUT') !== 'idle'}
                 formMethod="PUT"
                 type="submit"
+                className="bg-foreground text-background font-bold text-xs uppercase tracking-[0.18em] px-6 py-3 rounded-md hover:bg-foreground/85 transition disabled:opacity-60"
               >
-                {stateForMethod('PUT') !== 'idle' ? 'Saving' : 'Save'}
+                {stateForMethod('PUT') !== 'idle' ? 'Saving…' : 'Save'}
               </button>
               <button
                 disabled={stateForMethod('DELETE') !== 'idle'}
                 formMethod="DELETE"
                 type="submit"
+                className="border border-destructive text-destructive font-bold text-xs uppercase tracking-[0.18em] px-6 py-3 rounded-md hover:bg-destructive hover:text-white transition disabled:opacity-60"
               >
-                {stateForMethod('DELETE') !== 'idle' ? 'Deleting' : 'Delete'}
+                {stateForMethod('DELETE') !== 'idle' ? 'Deleting…' : 'Delete'}
               </button>
             </div>
           )}
         </AddressForm>
-      ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-background border border-border rounded-lg p-5 flex flex-col">
+      {isDefault && (
+        <span className="self-start text-[10px] uppercase tracking-[0.2em] font-bold bg-foreground text-background px-2 py-1 rounded-sm mb-3">
+          Default
+        </span>
+      )}
+      <div className="flex-1">
+        <p className="font-semibold text-foreground">
+          {address.firstName} {address.lastName}
+        </p>
+        {address.company && (
+          <p className="text-sm text-muted-foreground">{address.company}</p>
+        )}
+        <address className="not-italic text-sm text-muted-foreground mt-2 leading-relaxed whitespace-pre-line">
+          {address.formatted ? (
+            address.formatted
+          ) : (
+            <>
+              {address.address1}
+              {address.address2 ? `, ${address.address2}` : ''}
+              {'\n'}
+              {address.city}
+              {address.zoneCode ? `, ${address.zoneCode}` : ''}{' '}
+              {address.zip}
+              {'\n'}
+              {address.territoryCode}
+            </>
+          )}
+        </address>
+        {address.phoneNumber && (
+          <p className="text-sm text-muted-foreground mt-2">
+            {address.phoneNumber}
+          </p>
+        )}
+      </div>
+      <div className="pt-4 mt-4 border-t border-border">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-xs uppercase tracking-wider font-semibold text-foreground hover:underline"
+        >
+          Edit →
+        </button>
+      </div>
     </div>
   );
 }
@@ -368,142 +410,153 @@ export function AddressForm({addressId, address, defaultAddress, children}) {
   const action = useActionData();
   const error = action?.error?.[addressId];
   const isDefaultAddress = defaultAddress?.id === addressId;
+
   return (
-    <Form id={addressId}>
-      <fieldset>
-        <input type="hidden" name="addressId" defaultValue={addressId} />
-        <label htmlFor="firstName">First name*</label>
-        <input
-          aria-label="First name"
+    <Form id={addressId} className="space-y-4">
+      <input type="hidden" name="addressId" defaultValue={addressId} />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field
+          label="First name *"
+          id={`${addressId}-firstName`}
+          name="firstName"
           autoComplete="given-name"
           defaultValue={address?.firstName ?? ''}
-          id="firstName"
-          name="firstName"
-          placeholder="First name"
           required
-          type="text"
         />
-        <label htmlFor="lastName">Last name*</label>
-        <input
-          aria-label="Last name"
+        <Field
+          label="Last name *"
+          id={`${addressId}-lastName`}
+          name="lastName"
           autoComplete="family-name"
           defaultValue={address?.lastName ?? ''}
-          id="lastName"
-          name="lastName"
-          placeholder="Last name"
           required
-          type="text"
         />
-        <label htmlFor="company">Company</label>
-        <input
-          aria-label="Company"
-          autoComplete="organization"
-          defaultValue={address?.company ?? ''}
-          id="company"
-          name="company"
-          placeholder="Company"
-          type="text"
-        />
-        <label htmlFor="address1">Address line*</label>
-        <input
-          aria-label="Address line 1"
-          autoComplete="address-line1"
-          defaultValue={address?.address1 ?? ''}
-          id="address1"
-          name="address1"
-          placeholder="Address line 1*"
-          required
-          type="text"
-        />
-        <label htmlFor="address2">Address line 2</label>
-        <input
-          aria-label="Address line 2"
-          autoComplete="address-line2"
-          defaultValue={address?.address2 ?? ''}
-          id="address2"
-          name="address2"
-          placeholder="Address line 2"
-          type="text"
-        />
-        <label htmlFor="city">City*</label>
-        <input
-          aria-label="City"
+      </div>
+
+      <Field
+        label="Company"
+        id={`${addressId}-company`}
+        name="company"
+        autoComplete="organization"
+        defaultValue={address?.company ?? ''}
+      />
+
+      <Field
+        label="Address line 1 *"
+        id={`${addressId}-address1`}
+        name="address1"
+        autoComplete="address-line1"
+        defaultValue={address?.address1 ?? ''}
+        required
+      />
+
+      <Field
+        label="Address line 2"
+        id={`${addressId}-address2`}
+        name="address2"
+        autoComplete="address-line2"
+        defaultValue={address?.address2 ?? ''}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field
+          label="City *"
+          id={`${addressId}-city`}
+          name="city"
           autoComplete="address-level2"
           defaultValue={address?.city ?? ''}
-          id="city"
-          name="city"
-          placeholder="City"
           required
-          type="text"
         />
-        <label htmlFor="zoneCode">State / Province*</label>
-        <input
-          aria-label="State/Province"
+        <Field
+          label="State / Province *"
+          id={`${addressId}-zoneCode`}
+          name="zoneCode"
           autoComplete="address-level1"
           defaultValue={address?.zoneCode ?? ''}
-          id="zoneCode"
-          name="zoneCode"
-          placeholder="State / Province"
           required
-          type="text"
         />
-        <label htmlFor="zip">Zip / Postal Code*</label>
-        <input
-          aria-label="Zip"
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field
+          label="ZIP / Postal *"
+          id={`${addressId}-zip`}
+          name="zip"
           autoComplete="postal-code"
           defaultValue={address?.zip ?? ''}
-          id="zip"
-          name="zip"
-          placeholder="Zip / Postal Code"
           required
-          type="text"
         />
-        <label htmlFor="territoryCode">Country Code*</label>
-        <input
-          aria-label="Country code"
+        <Field
+          label="Country code *"
+          id={`${addressId}-territoryCode`}
+          name="territoryCode"
           autoComplete="country"
           defaultValue={address?.territoryCode ?? ''}
-          id="territoryCode"
-          name="territoryCode"
-          placeholder="Country"
           required
-          type="text"
           maxLength={2}
+          placeholder="US"
         />
-        <label htmlFor="phoneNumber">Phone</label>
+      </div>
+
+      <Field
+        label="Phone"
+        id={`${addressId}-phoneNumber`}
+        name="phoneNumber"
+        type="tel"
+        autoComplete="tel"
+        defaultValue={address?.phoneNumber ?? ''}
+        pattern="^\+?[1-9]\d{3,14}$"
+        placeholder="+16135551111"
+      />
+
+      <label
+        htmlFor={`${addressId}-defaultAddress`}
+        className="flex items-center gap-2.5 cursor-pointer select-none pt-1"
+      >
         <input
-          aria-label="Phone Number"
-          autoComplete="tel"
-          defaultValue={address?.phoneNumber ?? ''}
-          id="phoneNumber"
-          name="phoneNumber"
-          placeholder="+16135551111"
-          pattern="^\+?[1-9]\d{3,14}$"
-          type="tel"
+          defaultChecked={isDefaultAddress}
+          id={`${addressId}-defaultAddress`}
+          name="defaultAddress"
+          type="checkbox"
+          className="w-4 h-4 accent-foreground"
         />
-        <div>
-          <input
-            defaultChecked={isDefaultAddress}
-            id="defaultAddress"
-            name="defaultAddress"
-            type="checkbox"
-          />
-          <label htmlFor="defaultAddress">Set as default address</label>
+        <span className="text-sm text-foreground">
+          Set as default address
+        </span>
+      </label>
+
+      {error && (
+        <div className="border border-destructive/40 bg-destructive/5 text-destructive text-sm rounded-md px-4 py-3">
+          {error}
         </div>
-        {error ? (
-          <p>
-            <mark>
-              <small>{error}</small>
-            </mark>
-          </p>
-        ) : (
-          <br />
-        )}
-        {children({
-          stateForMethod: (method) => (formMethod === method ? state : 'idle'),
-        })}
-      </fieldset>
+      )}
+
+      {children({
+        stateForMethod: (method) => (formMethod === method ? state : 'idle'),
+      })}
     </Form>
+  );
+}
+
+function Field({label, id, name, type = 'text', ...rest}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="block text-[11px] uppercase tracking-[0.2em] font-semibold text-muted-foreground mb-2"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        aria-label={label}
+        className="w-full h-11 px-4 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/30 focus:border-foreground transition"
+        {...rest}
+      />
+    </div>
   );
 }
 
