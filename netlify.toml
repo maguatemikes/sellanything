@@ -1,0 +1,33 @@
+# Netlify deployment config for sellanything.us (Hydrogen storefront)
+#
+# How it works:
+#   1. `npm run build` produces dist/server/index.js + dist/client/*
+#   2. Netlify serves dist/client/* as static assets from its CDN
+#   3. All other requests hit the Edge Function at netlify/edge-functions/server.js
+#      which calls Hydrogen's fetch() handler from dist/server/index.js
+#
+# These files are Netlify-only. Oxygen ignores them entirely — when you
+# eventually `npx shopify hydrogen deploy`, Hydrogen uses dist/server/index.js
+# directly and never reads netlify.toml or netlify/edge-functions/.
+
+[build]
+  command = "npm run build"
+  publish = "dist/client"
+
+# Skip Netlify's auto-detected framework wrappers. Hydrogen has its own
+# build pipeline; we just need Netlify to serve the output.
+[build.environment]
+  # Tell Netlify Node version so npm install / build matches local
+  NODE_VERSION = "20"
+
+# Cache static assets for a year — they're content-hashed by the build,
+# so safe to cache aggressively.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"

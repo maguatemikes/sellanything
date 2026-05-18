@@ -88,13 +88,26 @@ Requires Hydrogen sales channel (Shopify plan ≥ $29/mo).
 ### Cloudflare Workers — free alternative
 Hydrogen builds to a Workers-compatible bundle via `@shopify/mini-oxygen`. Add a `wrangler.toml` and run `wrangler deploy`.
 
+### Netlify — already configured
+1. Connect this repo to a Netlify site (Add new site → Import from Git)
+2. Netlify auto-detects `netlify.toml`:
+   - Build command: `npm run build`
+   - Publish directory: `dist/client`
+3. Set env vars in **Site settings → Environment variables** (use
+   `.env.example` as the reference)
+4. Push to `main` to deploy
+
+Files involved (Netlify-only — invisible to Oxygen):
+- `netlify.toml` — build + publish + caching config
+- `netlify/edge-functions/server.js` — Edge Function shim that imports
+  `dist/server/index.js` and re-exports its `fetch` handler. Includes a
+  caches polyfill (fallback to in-memory Map if the runtime drops the
+  global), env-var pre-flight check, and verbose error reporting.
+
 ### Other platforms
-Hydrogen 2026.x is built on React Router 7 + Vite + MiniOxygen, so the
-build output (`dist/server/index.js` + `dist/client/`) can be wrapped for
-deployment to Netlify, Vercel, or any Workers-runtime host. Each platform
-needs its own thin adapter that re-exports the `dist/server/index.js`
-`fetch` handler. See the official Hydrogen deployment docs for
-platform-specific guides.
+Hydrogen 2026.x's `dist/server/index.js` is a Workers-style fetch handler,
+so it runs on any V8-isolate edge runtime (Cloudflare Workers, Vercel
+Edge, Netlify Edge, Deno Deploy). Each just needs a thin adapter.
 
 ## Project conventions
 
