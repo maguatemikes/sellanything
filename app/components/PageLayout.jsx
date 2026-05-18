@@ -17,6 +17,7 @@ export function PageLayout({
   cart,
   children = null,
   collections,
+  customer,
   footer,
   header,
   isLoggedIn,
@@ -35,6 +36,7 @@ export function PageLayout({
           header={header}
           cart={cart}
           collections={collections}
+          customer={customer}
           isLoggedIn={isLoggedIn}
           publicStoreDomain={publicStoreDomain}
         />
@@ -171,6 +173,7 @@ function MobileMenuAside({header, publicStoreDomain}) {
  * @property {Promise<FooterQuery|null>} footer
  * @property {HeaderQuery} header
  * @property {Promise<boolean>} isLoggedIn
+ * @property {Promise<{firstName?: string|null, lastName?: string|null}|null>} [customer]
  * @property {string} publicStoreDomain
  * @property {React.ReactNode} [children]
  */

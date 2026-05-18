@@ -157,12 +157,42 @@ function loadDeferredData({context}) {
       console.error(error);
       return null;
     });
+
+  // Defer a tiny customer query so the header can swap the account icon
+  // for an initial-letter avatar without blocking TTFB. Returns null when
+  // the visitor isn't logged in.
+  const customer = customerAccount
+    .isLoggedIn()
+    .then(async (loggedIn) => {
+      if (!loggedIn) return null;
+      try {
+        const {data} = await customerAccount.query(CUSTOMER_FIRSTNAME_QUERY);
+        return data?.customer ?? null;
+      } catch (error) {
+        console.error('Header customer query failed:', error?.message);
+        return null;
+      }
+    })
+    .catch(() => null);
+
   return {
     cart: cart.get(),
     isLoggedIn: customerAccount.isLoggedIn(),
+    customer,
     footer,
   };
 }
+
+// Minimal customer query — only what the header avatar needs.
+// Kept inline so it's obvious this is a header-specific lightweight fetch.
+const CUSTOMER_FIRSTNAME_QUERY = `#graphql
+  query CustomerHeader {
+    customer {
+      firstName
+      lastName
+    }
+  }
+`;
 
 /**
  * @param {{children?: React.ReactNode}}

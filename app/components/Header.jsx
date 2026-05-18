@@ -12,7 +12,7 @@ import {SearchResultsPredictive} from '~/components/SearchResultsPredictive';
 /**
  * Header — utility bar + main nav + promo bar. All Tailwind.
  */
-export function Header({isLoggedIn, cart, collections = []}) {
+export function Header({isLoggedIn, cart, collections = [], customer}) {
   return (
     <>
       <UtilityBar />
@@ -33,7 +33,7 @@ export function Header({isLoggedIn, cart, collections = []}) {
         <MainNav collections={collections} />
         <div className="flex items-center gap-1 md:gap-3 md:justify-self-end">
           <HeaderSearch />
-          <HeaderCtas cart={cart} />
+          <HeaderCtas cart={cart} customer={customer} />
         </div>
       </header>
       <PromoBar />
@@ -544,22 +544,69 @@ function SaleDropdown({collections = []}) {
 const iconBtn =
   'w-10 h-10 rounded-full bg-transparent border-0 inline-flex items-center justify-center hover:bg-secondary transition-colors';
 
-function HeaderCtas({cart}) {
+function HeaderCtas({cart, customer}) {
   return (
     <div className="flex items-center gap-1 md:justify-self-end">
-      <NavLink
-        to="/account"
-        className={iconBtn}
-        aria-label="Account"
-      >
-        <User className="h-5 w-5" />
-      </NavLink>
+      <AccountLink customer={customer} />
       <CartToggle cart={cart} />
       {/* Mobile-only menu toggle.
           Search lives INSIDE this drawer (see HeaderMenu below) — keeping
           the mobile header at 3 icons instead of 4. */}
       <MobileMenuToggle />
     </div>
+  );
+}
+
+/**
+ * Account icon — swaps to an initial-letter avatar when the visitor is
+ * logged in. The customer prop is a streaming Promise from the root loader
+ * (resolves to {firstName} or null). Suspense fallback is the generic
+ * User icon so we never block first paint waiting on Customer Account API.
+ */
+function AccountLink({customer}) {
+  return (
+    <Suspense fallback={<AccountIconFallback />}>
+      <Await resolve={customer} errorElement={<AccountIconFallback />}>
+        {(resolved) => <AccountAvatarOrIcon customer={resolved} />}
+      </Await>
+    </Suspense>
+  );
+}
+
+function AccountIconFallback() {
+  return (
+    <NavLink to="/account" className={iconBtn} aria-label="Account">
+      <User className="h-5 w-5" />
+    </NavLink>
+  );
+}
+
+function AccountAvatarOrIcon({customer}) {
+  const initial = customer?.firstName?.[0] || customer?.lastName?.[0];
+
+  if (!initial) {
+    // Not logged in (or no name yet) → generic icon.
+    return <AccountIconFallback />;
+  }
+
+  const fullName = [customer.firstName, customer.lastName]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <NavLink
+      to="/account"
+      className={`${iconBtn} relative`}
+      aria-label={fullName ? `Account: ${fullName}` : 'Account'}
+      title={fullName || 'Account'}
+    >
+      <span
+        aria-hidden
+        className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-foreground text-background text-xs font-bold uppercase tracking-tight leading-none"
+      >
+        {initial}
+      </span>
+    </NavLink>
   );
 }
 
