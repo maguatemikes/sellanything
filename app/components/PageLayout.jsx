@@ -3,7 +3,7 @@ import {Suspense, useId} from 'react';
 import {Aside} from '~/components/Aside';
 import {Footer} from '~/components/Footer';
 import {Header, HeaderMenu} from '~/components/Header';
-import {CartMain} from '~/components/CartMain';
+import {HydrogenCartDrawer} from '~/components/HydrogenCartDrawer';
 import {
   SEARCH_ENDPOINT,
   SearchFormPredictive,
@@ -16,6 +16,7 @@ import {SearchResultsPredictive} from '~/components/SearchResultsPredictive';
 export function PageLayout({
   cart,
   children = null,
+  collections,
   footer,
   header,
   isLoggedIn,
@@ -25,11 +26,15 @@ export function PageLayout({
     <Aside.Provider>
       <CartAside cart={cart} />
       <SearchAside />
-      <MobileMenuAside header={header} publicStoreDomain={publicStoreDomain} />
+      <MobileMenuAside
+        header={header}
+        publicStoreDomain={publicStoreDomain}
+      />
       {header && (
         <Header
           header={header}
           cart={cart}
+          collections={collections}
           isLoggedIn={isLoggedIn}
           publicStoreDomain={publicStoreDomain}
         />
@@ -44,19 +49,10 @@ export function PageLayout({
   );
 }
 
-/**
- * @param {{cart: PageLayoutProps['cart']}}
- */
 function CartAside({cart}) {
   return (
-    <Aside type="cart" heading="CART">
-      <Suspense fallback={<p>Loading cart ...</p>}>
-        <Await resolve={cart}>
-          {(cart) => {
-            return <CartMain cart={cart} layout="aside" />;
-          }}
-        </Await>
-      </Suspense>
+    <Aside type="cart" heading="YOUR BAG">
+      <HydrogenCartDrawer cart={cart} />
     </Aside>
   );
 }
@@ -65,11 +61,10 @@ function SearchAside() {
   const queriesDatalistId = useId();
   return (
     <Aside type="search" heading="SEARCH">
-      <div className="predictive-search">
-        <br />
+      <div className="h-full overflow-y-auto p-5 space-y-4">
         <SearchFormPredictive>
           {({fetchResults, goToSearch, inputRef}) => (
-            <>
+            <div className="flex gap-2">
               <input
                 name="q"
                 onChange={fetchResults}
@@ -78,10 +73,15 @@ function SearchAside() {
                 ref={inputRef}
                 type="search"
                 list={queriesDatalistId}
+                className="flex-1 h-10 px-3 rounded-md border border-border bg-background text-sm"
               />
-              &nbsp;
-              <button onClick={goToSearch}>Search</button>
-            </>
+              <button
+                onClick={goToSearch}
+                className="h-10 px-4 rounded-md bg-foreground text-background text-sm font-medium"
+              >
+                Search
+              </button>
+            </div>
           )}
         </SearchFormPredictive>
 

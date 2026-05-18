@@ -11,7 +11,6 @@ import {
 } from 'react-router';
 import favicon from '~/assets/favicon.svg';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
-import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
 import {PageLayout} from './components/PageLayout';
 
@@ -97,18 +96,44 @@ export async function loader(args) {
 async function loadCriticalData({context}) {
   const {storefront} = context;
 
-  const [header] = await Promise.all([
+  const [header, collectionsResult] = await Promise.all([
     storefront.query(HEADER_QUERY, {
       cache: storefront.CacheLong(),
       variables: {
-        headerMenuHandle: 'main-menu', // Adjust to your header menu handle
+        headerMenuHandle: 'main-menu',
       },
     }),
-    // Add other queries here, so that they are loaded in parallel
+    // Fetch all collections — these power the dynamic nav + home page sections
+    storefront
+      .query(NAV_COLLECTIONS_QUERY, {
+        cache: storefront.CacheShort(),
+      })
+      .catch((e) => {
+        console.error('Collections query failed:', e?.message);
+        return {collections: {nodes: []}};
+      }),
   ]);
 
-  return {header};
+  return {
+    header,
+    collections: collectionsResult?.collections?.nodes ?? [],
+  };
 }
+
+const NAV_COLLECTIONS_QUERY = `#graphql
+  query NavCollections($country: CountryCode, $language: LanguageCode)
+    @inContext(country: $country, language: $language) {
+    collections(first: 30, sortKey: TITLE) {
+      nodes {
+        id
+        title
+        handle
+        description
+        image { url altText width height }
+      }
+    }
+  }
+`;
 
 /**
  * Load data for rendering content below the fold. This data is deferred and will be
@@ -150,7 +175,6 @@ export function Layout({children}) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <link rel="stylesheet" href={resetStyles}></link>
         <link rel="stylesheet" href={appStyles}></link>
         <Meta />
         <Links />
@@ -198,13 +222,13 @@ export function ErrorBoundary() {
   }
 
   return (
-    <div className="route-error">
-      <h1>Oops</h1>
-      <h2>{errorStatus}</h2>
+    <div className="max-w-2xl mx-auto px-9 py-16">
+      <h1 className="text-3xl font-semibold mb-1">Oops</h1>
+      <h2 className="text-xl text-muted-foreground mb-6">{errorStatus}</h2>
       {errorMessage && (
-        <fieldset>
-          <pre>{errorMessage}</pre>
-        </fieldset>
+        <pre className="bg-secondary p-3 rounded-md overflow-auto text-xs">
+          {errorMessage}
+        </pre>
       )}
     </div>
   );

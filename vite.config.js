@@ -2,11 +2,19 @@ import {defineConfig} from 'vite';
 import {hydrogen} from '@shopify/hydrogen/vite';
 import {oxygen} from '@shopify/mini-oxygen/vite';
 import {reactRouter} from '@react-router/dev/vite';
+import tailwindcss from '@tailwindcss/vite';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [hydrogen(), oxygen(), reactRouter()],
+  plugins: [hydrogen(), oxygen(), reactRouter(), tailwindcss()],
   resolve: {
     tsconfigPaths: true,
+    alias: {
+      '~': path.resolve(__dirname, 'app'),
+    },
   },
   build: {
     // Allow a strict Content-Security-Policy
@@ -29,6 +37,15 @@ export default defineConfig({
         'react-router > set-cookie-parser',
         'react-router > cookie',
         'react-router',
+        // shadcn / Radix CJS deps that need ESM pre-bundling on Oxygen
+        'use-sync-external-store',
+        'use-sync-external-store/shim',
+        'use-sync-external-store/shim/with-selector',
+        'class-variance-authority',
+        'clsx',
+        'tailwind-merge',
+        'radix-ui',
+        '@radix-ui/react-slot',
       ],
     },
   },

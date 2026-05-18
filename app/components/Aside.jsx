@@ -1,15 +1,17 @@
-import {createContext, useContext, useEffect, useState} from 'react';
-import {useId} from 'react';
+import {createContext, useContext, useState} from 'react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '~/components/ui/sheet';
 
 /**
- * A side bar component with Overlay
- * @example
- * ```jsx
- * <Aside type="search" heading="SEARCH">
- *  <input type="search" />
- *  ...
- * </Aside>
- * ```
+ * Drawer system built on shadcn <Sheet> (Radix Dialog under the hood).
+ * Same external API as before — `useAside()`, `<Aside type="..." heading="...">`,
+ * `Aside.Provider` — so all existing consumers (Header, MockCartDrawer,
+ * product detail page, search) keep working unchanged.
+ *
  * @param {{
  *   children?: React.ReactNode;
  *   type: AsideType;
@@ -19,42 +21,26 @@ import {useId} from 'react';
 export function Aside({children, heading, type}) {
   const {type: activeType, close} = useAside();
   const expanded = type === activeType;
-  const id = useId();
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    if (expanded) {
-      document.addEventListener(
-        'keydown',
-        function handler(event) {
-          if (event.key === 'Escape') {
-            close();
-          }
-        },
-        {signal: abortController.signal},
-      );
-    }
-    return () => abortController.abort();
-  }, [close, expanded]);
 
   return (
-    <div
-      aria-modal
-      className={`overlay ${expanded ? 'expanded' : ''}`}
-      role="dialog"
-      aria-labelledby={id}
+    <Sheet
+      open={expanded}
+      onOpenChange={(open) => {
+        if (!open) close();
+      }}
     >
-      <button className="close-outside" onClick={close} />
-      <aside>
-        <header>
-          <h3 id={id}>{heading}</h3>
-          <button className="close reset" onClick={close} aria-label="Close">
-            &times;
-          </button>
-        </header>
-        <main>{children}</main>
-      </aside>
-    </div>
+      <SheetContent
+        side="right"
+        className="w-full sm:w-[420px] sm:max-w-[420px] p-0 flex flex-col"
+      >
+        <SheetHeader className="border-b border-border px-5 py-4">
+          <SheetTitle className="text-sm font-medium tracking-[0.2em] uppercase">
+            {heading}
+          </SheetTitle>
+        </SheetHeader>
+        <div className="flex-1 overflow-hidden">{children}</div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -85,12 +71,3 @@ export function useAside() {
 }
 
 /** @typedef {'search' | 'cart' | 'mobile' | 'closed'} AsideType */
-/**
- * @typedef {{
- *   type: AsideType;
- *   open: (mode: AsideType) => void;
- *   close: () => void;
- * }} AsideContextValue
- */
-
-/** @typedef {import('react').ReactNode} ReactNode */
