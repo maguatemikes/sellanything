@@ -51,6 +51,10 @@ const OPTIONAL = [
   'PUBLIC_CHECKOUT_DOMAIN',
   'PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID',
   'PUBLIC_CUSTOMER_ACCOUNT_API_URL',
+  // Hydrogen reads this directly to build the Customer Account API OAuth URL:
+  //   https://shopify.com/authentication/<SHOP_ID>/oauth/authorize
+  // Without it, the OAuth redirect lands on a 404 page on shopify.com.
+  'SHOP_ID',
   'PRIVATE_RESEND_API_KEY',
 ];
 
