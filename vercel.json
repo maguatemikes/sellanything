@@ -4,11 +4,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
   "trailingSlash": false,
-  "functions": {
-    "api/index.js": {
-      "runtime": "edge"
-    }
-  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ],
