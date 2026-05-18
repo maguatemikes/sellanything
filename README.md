@@ -89,7 +89,17 @@ Requires Hydrogen sales channel (Shopify plan ≥ $29/mo).
 Hydrogen builds to a Workers-compatible bundle via `@shopify/mini-oxygen`. Add a `wrangler.toml` and run `wrangler deploy`.
 
 ### Vercel — also free
-Needs a small `vercel.json` + Node adapter tweak. See [Hydrogen on Vercel docs](https://hydrogen.shopify.dev/docs/guides/deployment/vercel).
+Already configured. Just connect this repo to a Vercel project and deploy:
+
+1. `vercel.json` declares the Edge function + static output mapping
+2. `api/index.js` is a thin shim that re-exports the Hydrogen `fetch` handler
+   to Vercel's Edge Runtime (same V8-isolate model as Oxygen, so the bundle
+   runs unchanged)
+3. Set env vars in **Vercel dashboard → Settings → Environment Variables**
+   (same names as `.env.example`)
+
+These three additions are Vercel-only — Oxygen ignores them completely. You
+can deploy to Oxygen and Vercel from the same branch without conflict.
 
 ## Project conventions
 
