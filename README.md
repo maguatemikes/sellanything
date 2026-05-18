@@ -88,18 +88,13 @@ Requires Hydrogen sales channel (Shopify plan ≥ $29/mo).
 ### Cloudflare Workers — free alternative
 Hydrogen builds to a Workers-compatible bundle via `@shopify/mini-oxygen`. Add a `wrangler.toml` and run `wrangler deploy`.
 
-### Vercel — also free
-Already configured. Just connect this repo to a Vercel project and deploy:
-
-1. `vercel.json` declares the Edge function + static output mapping
-2. `api/index.js` is a thin shim that re-exports the Hydrogen `fetch` handler
-   to Vercel's Edge Runtime (same V8-isolate model as Oxygen, so the bundle
-   runs unchanged)
-3. Set env vars in **Vercel dashboard → Settings → Environment Variables**
-   (same names as `.env.example`)
-
-These three additions are Vercel-only — Oxygen ignores them completely. You
-can deploy to Oxygen and Vercel from the same branch without conflict.
+### Other platforms
+Hydrogen 2026.x is built on React Router 7 + Vite + MiniOxygen, so the
+build output (`dist/server/index.js` + `dist/client/`) can be wrapped for
+deployment to Netlify, Vercel, or any Workers-runtime host. Each platform
+needs its own thin adapter that re-exports the `dist/server/index.js`
+`fetch` handler. See the official Hydrogen deployment docs for
+platform-specific guides.
 
 ## Project conventions
 
