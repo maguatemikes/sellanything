@@ -9,43 +9,90 @@
  * This file is invisible to Oxygen — Oxygen deploys via
  * `shopify hydrogen deploy` which uses `dist/server/index.js` directly and
  * never touches /api/.
- *
- * Build order:
- *   1. `npm run build`        (Hydrogen, writes dist/server/index.js + dist/client/*)
- *   2. Vercel bundles this    (imports the SSR build above)
- *   3. Vercel serves dist/client as static + routes /(.*) here
  */
 import handler from '../dist/server/index.js';
 
 export const config = {
   runtime: 'edge',
-  // Optional: pin regions close to your shoppers for lower latency
   // regions: ['iad1', 'sfo1', 'hnd1'],
 };
 
+// Env vars the Hydrogen build expects. If any are missing, throw a clear
+// diagnostic before handing off to the handler — otherwise the user sees
+// "An unexpected error occurred" with no actionable info.
+const REQUIRED_ENV_VARS = [
+  'SESSION_SECRET',
+  'PUBLIC_STORE_DOMAIN',
+  'PUBLIC_STOREFRONT_API_TOKEN',
+];
+
+const OPTIONAL_ENV_VARS = [
+  'PUBLIC_STOREFRONT_ID',
+  'PUBLIC_CHECKOUT_DOMAIN',
+  'PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID',
+  'PUBLIC_CUSTOMER_ACCOUNT_API_URL',
+  'PRIVATE_RESEND_API_KEY',
+];
+
 /** @param {Request} request */
 export default async function handleRequest(request) {
-  // Vercel injects env vars into process.env on Edge, not into a separate
-  // `env` argument like Workers/Oxygen. Pass them through so the Hydrogen
-  // bundle sees the same shape it would on Oxygen.
-  const env = {
-    SESSION_SECRET: process.env.SESSION_SECRET,
-    PUBLIC_STORE_DOMAIN: process.env.PUBLIC_STORE_DOMAIN,
-    PUBLIC_STOREFRONT_API_TOKEN: process.env.PUBLIC_STOREFRONT_API_TOKEN,
-    PUBLIC_STOREFRONT_ID: process.env.PUBLIC_STOREFRONT_ID,
-    PUBLIC_CHECKOUT_DOMAIN: process.env.PUBLIC_CHECKOUT_DOMAIN,
-    PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID:
-      process.env.PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID,
-    PUBLIC_CUSTOMER_ACCOUNT_API_URL:
-      process.env.PUBLIC_CUSTOMER_ACCOUNT_API_URL,
-    PRIVATE_RESEND_API_KEY: process.env.PRIVATE_RESEND_API_KEY,
-  };
+  // Pull env from process.env (Vercel Edge injects them there).
+  const env = {};
+  for (const key of [...REQUIRED_ENV_VARS, ...OPTIONAL_ENV_VARS]) {
+    env[key] = process.env[key];
+  }
 
-  // Edge Runtime gives us a no-op executionContext shim
+  // Diagnose missing required vars BEFORE we get a vague Hydrogen error.
+  const missing = REQUIRED_ENV_VARS.filter((k) => !env[k]);
+  if (missing.length > 0) {
+    return new Response(
+      [
+        '⚠️  Missing required environment variables on Vercel:',
+        '',
+        ...missing.map((k) => `  - ${k}`),
+        '',
+        'Fix this in:',
+        '  Vercel dashboard → Project → Settings → Environment Variables',
+        '',
+        'Apply to: Production, Preview, AND Development checkboxes.',
+        'Then redeploy.',
+        '',
+        '(See .env.example in the repo for the full list + sources.)',
+      ].join('\n'),
+      {
+        status: 500,
+        headers: {'Content-Type': 'text/plain; charset=utf-8'},
+      },
+    );
+  }
+
   const executionContext = {
     waitUntil: (promise) => Promise.resolve(promise),
     passThroughOnException: () => {},
   };
 
-  return handler.fetch(request, env, executionContext);
+  try {
+    return await handler.fetch(request, env, executionContext);
+  } catch (error) {
+    // Log the real error to Vercel function logs so it's debuggable.
+    console.error('[Hydrogen handler error]', {
+      message: error?.message,
+      stack: error?.stack,
+      url: request.url,
+    });
+
+    // In production, return a generic message. In a Vercel preview or
+    // development deploy, surface the actual error so it's actionable.
+    const isProd = process.env.VERCEL_ENV === 'production';
+    if (isProd) {
+      return new Response('An unexpected error occurred', {status: 500});
+    }
+    return new Response(
+      `Hydrogen runtime error:\n\n${error?.message || error}\n\n${error?.stack || ''}`,
+      {
+        status: 500,
+        headers: {'Content-Type': 'text/plain; charset=utf-8'},
+      },
+    );
+  }
 }
