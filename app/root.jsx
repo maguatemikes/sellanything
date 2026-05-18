@@ -11,6 +11,7 @@ import {
 } from 'react-router';
 import favicon from '~/assets/favicon.svg';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
+import {CUSTOMER_HEADER_QUERY} from '~/graphql/customer-account/CustomerHeaderQuery';
 import appStyles from '~/styles/app.css?url';
 import {PageLayout} from './components/PageLayout';
 
@@ -166,7 +167,7 @@ function loadDeferredData({context}) {
     .then(async (loggedIn) => {
       if (!loggedIn) return null;
       try {
-        const {data} = await customerAccount.query(CUSTOMER_FIRSTNAME_QUERY);
+        const {data} = await customerAccount.query(CUSTOMER_HEADER_QUERY);
         return data?.customer ?? null;
       } catch (error) {
         console.error('Header customer query failed:', error?.message);
@@ -182,17 +183,6 @@ function loadDeferredData({context}) {
     footer,
   };
 }
-
-// Minimal customer query — only what the header avatar needs.
-// Kept inline so it's obvious this is a header-specific lightweight fetch.
-const CUSTOMER_FIRSTNAME_QUERY = `#graphql
-  query CustomerHeader {
-    customer {
-      firstName
-      lastName
-    }
-  }
-`;
 
 /**
  * @param {{children?: React.ReactNode}}
