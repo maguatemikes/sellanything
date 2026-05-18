@@ -81,14 +81,39 @@ export default async function handleRequest(request) {
       url: request.url,
     });
 
-    // In production, return a generic message. In a Vercel preview or
-    // development deploy, surface the actual error so it's actionable.
-    const isProd = process.env.VERCEL_ENV === 'production';
-    if (isProd) {
+    // Surface the actual error message + stack in the HTTP response so
+    // it's visible without diving into Vercel function logs. Once the
+    // store is live with real customers, swap this back to a generic
+    // 500 page (see PRODUCTION TODO below).
+    //
+    // PRODUCTION TODO: re-gate behind VERCEL_ENV !== 'production' OR
+    // require a `?debug=1` query param before showing stack traces.
+    const url = new URL(request.url);
+    const debug =
+      url.searchParams.has('debug') ||
+      process.env.VERCEL_ENV !== 'production';
+
+    if (!debug) {
       return new Response('An unexpected error occurred', {status: 500});
     }
+
     return new Response(
-      `Hydrogen runtime error:\n\n${error?.message || error}\n\n${error?.stack || ''}`,
+      [
+        'Hydrogen runtime error',
+        '======================',
+        '',
+        `URL:     ${request.url}`,
+        `Vercel:  ${process.env.VERCEL_ENV || 'unknown'}`,
+        '',
+        `Message: ${error?.message || error}`,
+        '',
+        'Stack:',
+        error?.stack || '(no stack)',
+        '',
+        '---',
+        'This page is unstyled because the SSR pipeline failed. Check',
+        '/api/index function logs in the Vercel dashboard for more context.',
+      ].join('\n'),
       {
         status: 500,
         headers: {'Content-Type': 'text/plain; charset=utf-8'},
